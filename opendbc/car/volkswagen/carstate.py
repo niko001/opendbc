@@ -43,10 +43,10 @@ class CarState(CarStateBase):
     ret = structs.CarState()
     # Update vehicle speed and acceleration from ABS wheel speeds.
     ret.wheelSpeeds = self.get_wheel_speeds(
-      pt_cp.vl["ESP_19"]["ESP_VL_Radgeschw_02"],
-      pt_cp.vl["ESP_19"]["ESP_VR_Radgeschw_02"],
-      pt_cp.vl["ESP_19"]["ESP_HL_Radgeschw_02"],
-      pt_cp.vl["ESP_19"]["ESP_HR_Radgeschw_02"],
+      pt_cp.vl["ESP_NEW_1"]["WHEEL_SPEED_FL"],
+      pt_cp.vl["ESP_NEW_1"]["WHEEL_SPEED_FR"],
+      pt_cp.vl["ESP_NEW_1"]["WHEEL_SPEED_RL"],
+      pt_cp.vl["ESP_NEW_1"]["WHEEL_SPEED_RR"],
     )
 
     ret.vEgoRaw = float(np.mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr]))
@@ -58,35 +58,37 @@ class CarState(CarStateBase):
     ret.steeringRateDeg = pt_cp.vl["LWI_01"]["LWI_Lenkradw_Geschw"] * (1, -1)[int(pt_cp.vl["LWI_01"]["LWI_VZ_Lenkradw_Geschw"])]
     ret.steeringTorque = pt_cp.vl["LH_EPS_03"]["EPS_Lenkmoment"] * (1, -1)[int(pt_cp.vl["LH_EPS_03"]["EPS_VZ_Lenkmoment"])]
     ret.steeringPressed = abs(ret.steeringTorque) > self.CCP.STEER_DRIVER_ALLOWANCE
-    ret.yawRate = pt_cp.vl["ESP_02"]["ESP_Gierrate"] * (1, -1)[int(pt_cp.vl["ESP_02"]["ESP_VZ_Gierrate"])] * CV.DEG_TO_RAD
-    hca_status = self.CCP.hca_status_values.get(pt_cp.vl["LH_EPS_03"]["EPS_HCA_Status"])
-    ret.steerFaultTemporary, ret.steerFaultPermanent = self.update_hca_state(hca_status)
+    ret.yawRate = pt_cp.vl["ESP_NEW_2"]["YAW_RATE"] * (1, -1)[int(pt_cp.vl["ESP_NEW_2"]["YAW_RATE_SIGN"])] * CV.DEG_TO_RAD
+    #hca_status = self.CCP.hca_status_values.get(pt_cp.vl["LH_EPS_03"]["EPS_HCA_Status"])
+    #ret.steerFaultTemporary, ret.steerFaultPermanent = self.update_hca_state(hca_status)
 
     # VW Emergency Assist status tracking and mitigation
-    self.eps_stock_values = pt_cp.vl["LH_EPS_03"]
-    if self.CP.flags & VolkswagenFlags.STOCK_HCA_PRESENT:
-      ret.carFaultedNonCritical = bool(cam_cp.vl["HCA_01"]["EA_Ruckfreigabe"]) or cam_cp.vl["HCA_01"]["EA_ACC_Sollstatus"] > 0
+    #self.eps_stock_values = pt_cp.vl["LH_EPS_03"]
+    #if self.CP.flags & VolkswagenFlags.STOCK_HCA_PRESENT:
+    #  ret.carFaultedNonCritical = bool(cam_cp.vl["HCA_01"]["EA_Ruckfreigabe"]) or cam_cp.vl["HCA_01"]["EA_ACC_Sollstatus"] > 0
 
     # Update gas, brakes, and gearshift.
-    ret.gas = pt_cp.vl["Motor_20"]["MO_Fahrpedalrohwert_01"] / 100.0
+    ret.gas = pt_cp.vl["MOTOR_NEW_1"]["ACCEL_PEDAL"] / 100.0
     ret.gasPressed = ret.gas > 0
-    ret.brake = pt_cp.vl["ESP_05"]["ESP_Bremsdruck"] / 250.0  # FIXME: this is pressure in Bar, not sure what OP expects
+    ret.brake = pt_cp.vl["ESP_NEW_3"]["BRAKE_PRESSURE"]
     brake_pedal_pressed = bool(pt_cp.vl["Motor_14"]["MO_Fahrer_bremst"])
-    brake_pressure_detected = bool(pt_cp.vl["ESP_05"]["ESP_Fahrer_bremst"])
-    ret.brakePressed = brake_pedal_pressed or brake_pressure_detected
+    #brake_pressure_detected = bool(pt_cp.vl["ESP_05"]["ESP_Fahrer_bremst"])
+    #ret.brakePressed = brake_pedal_pressed or brake_pressure_detected
+    ret.brakePressed = brake_pedal_pressed  # FIXME
     ret.parkingBrake = bool(pt_cp.vl["Kombi_01"]["KBI_Handbremse"])  # FIXME: need to include an EPB check as well
 
     # Update gear and/or clutch position data.
-    if self.CP.transmissionType == TransmissionType.automatic:
-      ret.gearShifter = self.parse_gear_shifter(self.CCP.shifter_values.get(pt_cp.vl["Getriebe_11"]["GE_Fahrstufe"], None))
-    elif self.CP.transmissionType == TransmissionType.direct:
-      ret.gearShifter = self.parse_gear_shifter(self.CCP.shifter_values.get(pt_cp.vl["Motor_EV_01"]["MO_Waehlpos"], None))
-    elif self.CP.transmissionType == TransmissionType.manual:
-      ret.clutchPressed = not pt_cp.vl["Motor_14"]["MO_Kuppl_schalter"]
-      if bool(pt_cp.vl["Gateway_72"]["BCM1_Rueckfahrlicht_Schalter"]):
-        ret.gearShifter = GearShifter.reverse
-      else:
-        ret.gearShifter = GearShifter.drive
+    #if self.CP.transmissionType == TransmissionType.automatic:
+    #  ret.gearShifter = self.parse_gear_shifter(self.CCP.shifter_values.get(pt_cp.vl["Getriebe_11"]["GE_Fahrstufe"], None))
+    #elif self.CP.transmissionType == TransmissionType.direct:
+    #  ret.gearShifter = self.parse_gear_shifter(self.CCP.shifter_values.get(pt_cp.vl["Motor_EV_01"]["MO_Waehlpos"], None))
+    #elif self.CP.transmissionType == TransmissionType.manual:
+    #  ret.clutchPressed = not pt_cp.vl["Motor_14"]["MO_Kuppl_schalter"]
+    #  if bool(pt_cp.vl["Gateway_72"]["BCM1_Rueckfahrlicht_Schalter"]):
+    #    ret.gearShifter = GearShifter.reverse
+    #  else:
+    #    ret.gearShifter = GearShifter.drive
+    ret.gearShifter = GearShifter.drive
 
     # Update door and trunk/hatch lid open status.
     ret.doorOpen = any([pt_cp.vl["Gateway_72"]["ZV_FT_offen"],
@@ -100,9 +102,9 @@ class CarState(CarStateBase):
 
     # Consume blind-spot monitoring info/warning LED states, if available.
     # Infostufe: BSM LED on, Warnung: BSM LED flashing
-    if self.CP.enableBsm:
-      ret.leftBlindspot = bool(ext_cp.vl["SWA_01"]["SWA_Infostufe_SWA_li"]) or bool(ext_cp.vl["SWA_01"]["SWA_Warnung_SWA_li"])
-      ret.rightBlindspot = bool(ext_cp.vl["SWA_01"]["SWA_Infostufe_SWA_re"]) or bool(ext_cp.vl["SWA_01"]["SWA_Warnung_SWA_re"])
+    #if self.CP.enableBsm:
+    #  ret.leftBlindspot = bool(ext_cp.vl["SWA_01"]["SWA_Infostufe_SWA_li"]) or bool(ext_cp.vl["SWA_01"]["SWA_Warnung_SWA_li"])
+    #  ret.rightBlindspot = bool(ext_cp.vl["SWA_01"]["SWA_Infostufe_SWA_re"]) or bool(ext_cp.vl["SWA_01"]["SWA_Warnung_SWA_re"])
 
     # Consume factory LDW data relevant for factory SWA (Lane Change Assist)
     # and capture it for forwarding to the blind spot radar controller
@@ -113,34 +115,31 @@ class CarState(CarStateBase):
     # braking release bits are set.
     # Refer to VW Self Study Program 890253: Volkswagen Driver Assistance
     # Systems, chapter on Front Assist with Braking: Golf Family for all MQB
-    ret.stockFcw = bool(ext_cp.vl["ACC_10"]["AWV2_Freigabe"])
-    ret.stockAeb = bool(ext_cp.vl["ACC_10"]["ANB_Teilbremsung_Freigabe"]) or bool(ext_cp.vl["ACC_10"]["ANB_Zielbremsung_Freigabe"])
+    #ret.stockFcw = bool(ext_cp.vl["ACC_10"]["AWV2_Freigabe"])
+    #ret.stockAeb = bool(ext_cp.vl["ACC_10"]["ANB_Teilbremsung_Freigabe"]) or bool(ext_cp.vl["ACC_10"]["ANB_Zielbremsung_Freigabe"])
 
     # Update ACC radar status.
-    self.acc_type = ext_cp.vl["ACC_06"]["ACC_Typ"]
-
-    # ACC okay but disabled (1), ACC ready (2), a radar visibility or other fault/disruption (6 or 7)
-    # currently regulating speed (3), driver accel override (4), brake only (5)
-    ret.cruiseState.available = pt_cp.vl["TSK_06"]["TSK_Status"] in (2, 3, 4, 5)
-    ret.cruiseState.enabled = pt_cp.vl["TSK_06"]["TSK_Status"] in (3, 4, 5)
-
-    if self.CP.pcmCruise:
-      # Cruise Control mode; check for distance UI setting from the radar.
-      # ECM does not manage this, so do not need to check for openpilot longitudinal
-      ret.cruiseState.nonAdaptive = ext_cp.vl["ACC_02"]["ACC_Gesetzte_Zeitluecke"] == 0
+    #self.acc_type = ext_cp.vl["ACC_06"]["ACC_Typ"]
+    if pt_cp.vl["MOTOR_NEW_1"]["TSK_STATUS"] == 2:
+      # ACC okay and enabled, but not currently engaged
+      ret.cruiseState.available = True
+      ret.cruiseState.enabled = False
+    elif pt_cp.vl["MOTOR_NEW_1"]["TSK_STATUS"] in (3, 4, 5):
+      # ACC okay and enabled, currently regulating speed (3) or driver accel override (4) or brake only (5)
+      ret.cruiseState.available = True
+      ret.cruiseState.enabled = True
     else:
-      # Speed limiter mode; ECM faults if we command ACC while not pcmCruise
-      ret.cruiseState.nonAdaptive = bool(pt_cp.vl["TSK_06"]["TSK_Limiter_ausgewaehlt"])
-
-    ret.accFaulted = pt_cp.vl["TSK_06"]["TSK_Status"] in (6, 7)
-
+      # ACC okay but disabled (1), or a radar visibility or other fault/disruption (6 or 7)
+      ret.cruiseState.available = False
+      ret.cruiseState.enabled = False
     self.esp_hold_confirmation = bool(pt_cp.vl["ESP_21"]["ESP_Haltebestaetigung"])
     ret.cruiseState.standstill = self.CP.pcmCruise and self.esp_hold_confirmation
+    ret.accFaulted = pt_cp.vl["MOTOR_NEW_1"]["TSK_STATUS"] in (6, 7)
 
     # Update ACC setpoint. When the setpoint is zero or there's an error, the
     # radar sends a set-speed of ~90.69 m/s / 203mph.
     if self.CP.pcmCruise:
-      ret.cruiseState.speed = ext_cp.vl["ACC_02"]["ACC_Wunschgeschw_02"] * CV.KPH_TO_MS
+      ret.cruiseState.speed = ext_cp.vl["ACC_NEW_2"]["SET_SPEED"] * CV.KPH_TO_MS
       if ret.cruiseState.speed > 90:
         ret.cruiseState.speed = 0
 
@@ -275,13 +274,13 @@ class CarState(CarStateBase):
       # sig_address, frequency
       ("LWI_01", 100),      # From J500 Steering Assist with integrated sensors
       ("LH_EPS_03", 100),   # From J500 Steering Assist with integrated sensors
-      ("ESP_19", 100),      # From J104 ABS/ESP controller
-      ("ESP_05", 50),       # From J104 ABS/ESP controller
+      ("ESP_NEW_1", 100),      # From J104 ABS/ESP controller
+      ("ESP_NEW_2", 50),       # From J104 ABS/ESP controller
+      ("ESP_NEW_3", 50),    # From J105 ABS/ESP controller
       ("ESP_21", 50),       # From J104 ABS/ESP controller
-      ("Motor_20", 50),     # From J623 Engine control module
-      ("TSK_06", 50),       # From J623 Engine control module
-      ("ESP_02", 50),       # From J104 ABS/ESP controller
-      ("GRA_ACC_01", 33),   # From J533 CAN gateway (via LIN from steering wheel controls)
+      ("MOTOR_NEW_1", 50),     # From J623 Engine control module
+      ("GRA_ACC_01", 33),       # From J623 Engine control module
+      ("ACC_NEW_2", 17),       # From J104 ABS/ESP controller
       ("Gateway_72", 10),   # From J533 CAN gateway (aggregated data)
       ("Motor_14", 10),     # From J623 Engine control module
       ("Airbag_02", 5),     # From J234 Airbag control module
@@ -290,22 +289,22 @@ class CarState(CarStateBase):
       ("Kombi_03", 0),      # From J285 instrument cluster (not present on older cars, 1Hz when present)
     ]
 
-    if CP.transmissionType == TransmissionType.automatic:
-      pt_messages.append(("Getriebe_11", 20))  # From J743 Auto transmission control module
-    elif CP.transmissionType == TransmissionType.direct:
-      pt_messages.append(("Motor_EV_01", 10))  # From J??? unknown EV control module
+    #if CP.transmissionType == TransmissionType.automatic:
+    #  pt_messages.append(("Getriebe_11", 20))  # From J743 Auto transmission control module
+    #elif CP.transmissionType == TransmissionType.direct:
+    #  pt_messages.append(("Motor_EV_01", 10))  # From J??? unknown EV control module
 
-    if CP.networkLocation == NetworkLocation.fwdCamera:
-      # Radars are here on CANBUS.pt
-      pt_messages += MqbExtraSignals.fwd_radar_messages
-      if CP.enableBsm:
-        pt_messages += MqbExtraSignals.bsm_radar_messages
+    #if CP.networkLocation == NetworkLocation.fwdCamera:
+    #  # Radars are here on CANBUS.pt
+    #  pt_messages += MqbExtraSignals.fwd_radar_messages
+    #  if CP.enableBsm:
+    #    pt_messages += MqbExtraSignals.bsm_radar_messages
 
     cam_messages = []
-    if CP.flags & VolkswagenFlags.STOCK_HCA_PRESENT:
-      cam_messages += [
-        ("HCA_01", 1),  # From R242 Driver assistance camera, 50Hz if steering/1Hz if not
-      ]
+    #if CP.flags & VolkswagenFlags.STOCK_HCA_PRESENT:
+    #  cam_messages += [
+    #    ("HCA_01", 1),  # From R242 Driver assistance camera, 50Hz if steering/1Hz if not
+    #  ]
 
     if CP.networkLocation == NetworkLocation.fwdCamera:
       cam_messages += [

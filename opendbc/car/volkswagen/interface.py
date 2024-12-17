@@ -36,22 +36,28 @@ class CarInterface(CarInterfaceBase):
     else:
       # Set global MQB parameters
       ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.volkswagen)]
-      ret.enableBsm = 0x30F in fingerprint[0]  # SWA_01
+      #ret.enableBsm = 0x30F in fingerprint[0]  # SWA_01
+      # TODO: locate BSM message
+      ret.enableBsm = False
 
-      if 0xAD in fingerprint[0] or docs:  # Getriebe_11
-        ret.transmissionType = TransmissionType.automatic
-      elif 0x187 in fingerprint[0]:  # Motor_EV_01
-        ret.transmissionType = TransmissionType.direct
-      else:
-        ret.transmissionType = TransmissionType.manual
+      #if 0xAD in fingerprint[0] or docs:  # Getriebe_11
+      #  ret.transmissionType = TransmissionType.automatic
+      #elif 0x187 in fingerprint[0]:  # Motor_EV_01
+      #  ret.transmissionType = TransmissionType.direct
+      #else:
+      #  ret.transmissionType = TransmissionType.manual
+      # TODO: locate gear position message
+      ret.transmissionType = TransmissionType.automatic
 
-      if any(msg in fingerprint[1] for msg in (0x40, 0x86, 0xB2, 0xFD)):  # Airbag_01, LWI_01, ESP_19, ESP_21
-        ret.networkLocation = NetworkLocation.gateway
-      else:
-        ret.networkLocation = NetworkLocation.fwdCamera
+      #if any(msg in fingerprint[1] for msg in (0x40, 0x86, 0xB2, 0xFD)):  # Airbag_01, LWI_01, ESP_19, ESP_21
+      #  ret.networkLocation = NetworkLocation.gateway
+      #else:
+      #  ret.networkLocation = NetworkLocation.fwdCamera
+      # TODO: gateway harness not yet developed
+      ret.networkLocation = NetworkLocation.fwdCamera
 
-      if 0x126 in fingerprint[2]:  # HCA_01
-        ret.flags |= VolkswagenFlags.STOCK_HCA_PRESENT.value
+      #if 0x126 in fingerprint[2]:  # HCA_01
+      #  ret.flags |= VolkswagenFlags.STOCK_HCA_PRESENT.value
 
     # Global lateral tuning defaults, can be overridden per-vehicle
 
@@ -61,11 +67,13 @@ class CarInterface(CarInterfaceBase):
       CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
     else:
       ret.steerActuatorDelay = 0.1
+      ret.steerLimitTimer = 0.4
+      ret.steerRatio = 15.6  # Let the params learner figure this out
       ret.lateralTuning.pid.kpBP = [0.]
       ret.lateralTuning.pid.kiBP = [0.]
-      ret.lateralTuning.pid.kf = 0.00006
-      ret.lateralTuning.pid.kpV = [0.6]
-      ret.lateralTuning.pid.kiV = [0.2]
+      ret.lateralTuning.pid.kf = 0.00012
+      ret.lateralTuning.pid.kpV = [0.25]
+      ret.lateralTuning.pid.kiV = [0.015]
 
     # Global longitudinal tuning defaults, can be overridden per-vehicle
 
@@ -78,9 +86,12 @@ class CarInterface(CarInterfaceBase):
         ret.minEnableSpeed = 4.5
 
     ret.pcmCruise = not ret.openpilotLongitudinalControl
+    ret.stoppingControl = True
     ret.stopAccel = -0.55
     ret.vEgoStarting = 0.1
     ret.vEgoStopping = 0.5
+    ret.longitudinalTuning.kpV = [0.1]
+    ret.longitudinalTuning.kiV = [0.0]
     ret.autoResumeSng = ret.minEnableSpeed == -1
 
     return ret

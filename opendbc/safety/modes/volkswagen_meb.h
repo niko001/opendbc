@@ -52,7 +52,7 @@ static void volkswagen_meb_rx_hook(const CANPacket_t *to_push) {
     // Signal: LH_EPS_03.EPS_VZ_Lenkmoment (direction)
     if (addr == MSG_LH_EPS_03) {
       int torque_driver_new = GET_BYTES(to_push, 5, 2) & 0x1FFFU;
-      int sign = (GET_BYTE(to_push, 6) & 0x80U) >> 7;
+      int sign = (to_push->data[6] & 0x80U) >> 7;
       if (sign == 1) {
         torque_driver_new *= -1;
       }
@@ -74,7 +74,7 @@ static void volkswagen_meb_rx_hook(const CANPacket_t *to_push) {
     if (addr == MSG_Motor_51) {
       // When using stock ACC, enter controls on rising edge of stock ACC engage, exit on disengage
       // Always exit controls on main switch off
-      int acc_status = (GET_BYTE(to_push, 11U) & 0x07U);
+      int acc_status = (to_push->data[11] & 0x07U);
       bool cruise_engaged = (acc_status == 3) || (acc_status == 4) || (acc_status == 5);
       acc_main_on = cruise_engaged || (acc_status == 2);
 
@@ -92,7 +92,7 @@ static void volkswagen_meb_rx_hook(const CANPacket_t *to_push) {
 
     // update accel pedal
     if (addr == MSG_Motor_54) {
-      int accel_pedal_value = GET_BYTE(to_push, 21U) - 37U;
+      int accel_pedal_value = to_push->data[21] - 37U;
       gas_pressed = accel_pedal_value != 0;
     }
   }
@@ -139,8 +139,8 @@ static bool volkswagen_meb_tx_hook(const CANPacket_t *to_send) {
       steer_curvature *= -1;
     }
 
-    bool steer_req = ((GET_BYTE(to_send, 1) >> 4) & 0x7U) == 4U;
-    int steer_power = GET_BYTE(to_send, 2U) * 0.4;
+    bool steer_req = ((to_send->data[1] >> 4) & 0x7U) == 4U;
+    int steer_power = to_send->data[2] * 0.4;
 
     if (volkswagen_curvature_cmd_checks(steer_power, steer_curvature, steer_req)) {
       // tx = false;
@@ -155,7 +155,7 @@ static bool volkswagen_meb_tx_hook(const CANPacket_t *to_send) {
   // This avoids unintended engagements while still allowing resume spam
   if ((addr == MSG_GRA_ACC_01) && !controls_allowed) {
     // disallow resume and set: bits 16 and 19
-    if ((GET_BYTE(to_send, 2) & 0x9U) != 0U) {
+    if ((to_send->data[2] & 0x9U) != 0U) {
       tx = false;
     }
   }

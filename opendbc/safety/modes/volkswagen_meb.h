@@ -33,7 +33,7 @@ static safety_config volkswagen_meb_init(uint16_t param) {
 
 static void volkswagen_meb_rx_hook(const CANPacket_t *to_push) {
   if (to_push->bus == 0U) {
-    int addr = GET_ADDR(to_push);
+    int addr = to_push->addr;
 
     // Update in-motion state by sampling wheel speeds
     if (addr == MSG_ESC_51) {
@@ -127,7 +127,7 @@ static bool volkswagen_curvature_cmd_checks(int steer_power, int steer_curvature
 }
 
 static bool volkswagen_meb_tx_hook(const CANPacket_t *to_send) {
-  int addr = GET_ADDR(to_send);
+  int addr = to_send->addr;
   bool tx = true;
 
   // Safety check for HCA_03 Heading Control Assist curvature

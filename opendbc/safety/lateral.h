@@ -1,4 +1,4 @@
-#include "opendbc/safety/sunnypilot/safety_mads.h"
+//#include "opendbc/safety/sunnypilot/safety_mads.h"
 #include "opendbc/safety/safety_declarations.h"
 
 // ISO 11270
@@ -9,7 +9,7 @@ static const float EARTH_G = 9.81;
 static const float AVERAGE_ROAD_ROLL = 0.06;  // ~3.4 degrees, 6% superelevation
 
 bool is_lat_active(void) {
-  return controls_allowed || mads_is_lateral_control_allowed_by_mads();
+  return controls_allowed;
 }
 
 // check that commanded torque value isn't too far from measured

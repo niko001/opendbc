@@ -17,29 +17,16 @@ bool volkswagen_resume_button_prev = false;
 
 #define MSG_LH_EPS_03        0x09FU   // RX from EPS, for driver steering torque
 #define MSG_ESP_19           0x0B2U   // RX from ABS, for wheel speeds
-#define MSG_ESC_51           0x0FCU   // RX, for wheel speeds
 #define MSG_ESC_50           0x102U   // RX, for yaw rate
 #define MSG_ESP_05           0x106U   // RX from ABS, for brake switch state
-#define MSG_Motor_51         0x10BU   // RX for TSK state
 #define MSG_TSK_06           0x120U   // RX from ECU, for ACC status from drivetrain coordinator
 #define MSG_MOTOR_20         0x121U   // RX from ECU, for driver throttle input
 #define MSG_ACC_06           0x122U   // TX by OP, ACC control instructions to the drivetrain coordinator
 #define MSG_HCA_01           0x126U   // TX by OP, Heading Control Assist steering torque
-#define MSG_GRA_ACC_01       0x12BU   // TX by OP, ACC control buttons for cancel/resume
 #define MSG_ACC_07           0x12EU   // TX by OP, ACC control instructions to the drivetrain coordinator
 #define MSG_VMM_02           0x139U   // RX, for ESP hold management
-#define MSG_QFK_01           0x13DU   // RX, for steering angle
-#define MSG_Motor_54         0x14CU   // RX, for accel pedal
-#define MSG_ACC_18           0x14DU   // RX from ECU, for ACC status
-#define MSG_EA_01            0x1A4U   // TX, for EA mitigation
-#define MSG_EA_02            0x1F0U   // TX, for EA mitigation
 #define MSG_EML_06           0x20AU   // RX, for yaw rate
-#define MSG_TA_01            0x26BU   // TX for Travel Assist status
-#define MSG_MEB_ACC_01       0x300U   // RX from ECU, for ACC status
-#define MSG_HCA_03           0x303U   // TX by OP, Heading Control Assist steering torque
 #define MSG_ACC_02           0x30CU   // TX by OP, ACC HUD data to the instrument cluster
-#define MSG_LDW_02           0x397U   // TX by OP, Lane line recognition and text alerts
-#define MSG_MOTOR_14         0x3BEU   // RX from ECU, for brake switch status
 
 
 static uint32_t volkswagen_mqb_meb_get_checksum(const CANPacket_t *msg) {

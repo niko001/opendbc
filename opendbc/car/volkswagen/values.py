@@ -2,7 +2,7 @@ from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from enum import Enum, IntFlag, StrEnum
 
-from opendbc.car import Bus, CanBusBase, CarSpecs, DbcDict, PlatformConfig, Platforms, structs, uds
+from opendbc.car import CurvatureSteeringLimits, Bus, CanBusBase, CarSpecs, DbcDict, PlatformConfig, Platforms, structs, uds
 from opendbc.can import CANDefine
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.docs_definitions import CarFootnote, CarHarness, CarDocs, CarParts, Column, \
@@ -34,6 +34,10 @@ class CanBus(CanBusBase):
   def aux(self) -> int:
     # NetworkLocation.fwdCamera: radar-camera object fusion CAN
     # NetworkLocation.gateway: powertrain CAN
+    return self.offset + 1
+
+  @property
+  def main(self) -> int:
     return self.offset + 1
 
   @property
@@ -103,15 +107,19 @@ class CarControllerParams:
       }
 
     elif CP.flags & VolkswagenFlags.MEB:
-      self.LDW_STEP                        = 10    # LDW_02 message frequency 10Hz
-      self.ACC_HUD_STEP                    = 6     # MEB_ACC_01 message frequency 16Hz
-      self.STEER_DRIVER_ALLOWANCE          = 60    # Driver torque 0.6 Nm, begin steering reduction from MAX
-      self.STEER_DRIVER_MAX                = 300   # Driver torque 3.0 Nm, stop steering reduction at MIN
-      self.STEERING_POWER_MAX              = 50    # HCA_03 maximum steering power, percentage
-      self.STEERING_POWER_MIN              = 20    # HCA_03 minimum steering power, percentage
-      self.STEERING_POWER_STEP             = 2     # HCA_03 steering power step increments
+      self.LDW_STEP                = 10    # LDW_02 message frequency 10Hz
+      self.ACC_HUD_STEP            = 6     # MEB_ACC_01 message frequency 16Hz
+      self.STEER_DRIVER_ALLOWANCE  = 60    # Driver torque 0.6 Nm, begin steering reduction from MAX
+      self.STEER_DRIVER_MAX        = 300   # Driver torque 3.0 Nm, stop steering reduction at MIN
+      self.STEERING_POWER_MAX      = 50    # HCA_03 maximum steering power, percentage
+      self.STEERING_POWER_MIN      = 4     # HCA_03 minimum steering power, percentage
+      self.STEERING_POWER_STEP     = 2     # HCA_03 steering power counter steps
 
-      self.shifter_values    = can_define.dv["Gateway_73"]["GE_Fahrstufe"]
+      self.CURVATURE_LIMITS: CurvatureSteeringLimits = CurvatureSteeringLimits(
+        0.195,  # Max curvature for steering command, m^-1
+      )
+
+      self.shifter_values    = can_define.dv["Getriebe_11"]["GE_Fahrstufe"]
       self.hca_status_values = can_define.dv["QFK_01"]["LatCon_HCA_Status"]
 
       self.BUTTONS = [
@@ -119,7 +127,8 @@ class CarControllerParams:
         Button(structs.CarState.ButtonEvent.Type.resumeCruise, "GRA_ACC_01", "GRA_Tip_Wiederaufnahme", [1]),
         Button(structs.CarState.ButtonEvent.Type.accelCruise, "GRA_ACC_01", "GRA_Tip_Hoch", [1]),
         Button(structs.CarState.ButtonEvent.Type.decelCruise, "GRA_ACC_01", "GRA_Tip_Runter", [1]),
-        Button(structs.CarState.ButtonEvent.Type.cancel, "GRA_ACC_01", "GRA_Hauptschalter", [1]),
+        #Button(structs.CarState.ButtonEvent.Type.cancel, "GRA_ACC_01", "GRA_Abbrechen", [1]), # there is no physical cancel button
+        Button(structs.CarState.ButtonEvent.Type.cancel, "GRA_ACC_01", "GRA_Hauptschalter", [1]), # main button cancels ACC operation when ACC active
         Button(structs.CarState.ButtonEvent.Type.gapAdjustCruise, "GRA_ACC_01", "GRA_Verstellung_Zeitluecke", [3]),
       ]
 
@@ -198,6 +207,8 @@ class VolkswagenFlags(IntFlag):
   # Detected flags
   STOCK_HCA_PRESENT = 1
   KOMBI_PRESENT = 4
+  STOCK_KLR_PRESENT = 8
+  STOCK_PSD_PRESENT = 16
 
   # Static flags
   PQ = 2
@@ -259,9 +270,6 @@ class Footnote(Enum):
     "Model-years 2022 and beyond may have a combined CAN gateway and BCM, which is supported by openpilot " +
     "in software, but doesn't yet have a harness available from the comma store.",
     Column.HARDWARE)
-  VW_MEB = CarFootnote(
-    "Volkswagen MEB plattform is using CAN-FD, which is supported by comma 3x or red panda.",
-    Column.HARDWARE)
 
 
 @dataclass
@@ -274,9 +282,7 @@ class VWCarDocs(CarDocs):
     if "SKODA" in CP.carFingerprint:
       self.footnotes.append(Footnote.SKODA_HEATED_WINDSHIELD)
 
-    if CP.flags & VolkswagenFlags.MEB:
-      self.car_parts = CarParts.common([CarHarness.vw_c])
-    elif CP.carFingerprint in (CAR.VOLKSWAGEN_CRAFTER_MK2, CAR.VOLKSWAGEN_TRANSPORTER_T61):
+    if CP.carFingerprint in (CAR.VOLKSWAGEN_CRAFTER_MK2, CAR.VOLKSWAGEN_TRANSPORTER_T61):
       self.car_parts = CarParts([Device.threex_angled_mount, CarHarness.vw_j533])
 
     if abs(CP.minSteerSpeed - CarControllerParams.DEFAULT_MIN_STEER_SPEED) < 1e-3:
@@ -288,7 +294,7 @@ class VWCarDocs(CarDocs):
 # FW_VERSIONS for that existing CAR.
 
 class CAR(Platforms):
-  config: VolkswagenMQBPlatformConfig | VolkswagenPQPlatformConfig | VolkswagenMEBPlatformConfig
+  config: VolkswagenMQBPlatformConfig | VolkswagenPQPlatformConfig
 
   VOLKSWAGEN_ARTEON_MK1 = VolkswagenMQBPlatformConfig(
     [
@@ -319,7 +325,8 @@ class CAR(Platforms):
       VWCarDocs("Volkswagen Caddy 2019"),
       VWCarDocs("Volkswagen Caddy Maxi 2019"),
     ],
-    VolkswagenCarSpecs(mass=1613, wheelbase=2.6, minSteerSpeed=21 * CV.KPH_TO_MS),
+    #VolkswagenCarSpecs(mass=1613, wheelbase=2.6),
+    VolkswagenCarSpecs(mass=1550, wheelbase=2.682, steerRatio=15.5, centerToFrontRatio=0.505, tireStiffnessFactor=1.1),
     chassis_codes={"2K"},
     wmis={WMI.VOLKSWAGEN_COMMERCIAL_BUS_VAN},
   )
@@ -360,12 +367,6 @@ class CAR(Platforms):
     VolkswagenCarSpecs(mass=1360, wheelbase=2.64),
     chassis_codes={"CD"},  # TODO: incomplete
     wmis={WMI.VOLKSWAGEN_EUROPE_CAR},  # TODO: incomplete
-  )
-  VOLKSWAGEN_ID4_MK1 = VolkswagenMEBPlatformConfig(
-    [VWCarDocs("Volkswagen ID.4 2021-25", footnotes=[Footnote.VW_MEB])],
-    VolkswagenCarSpecs(mass=2099, wheelbase=2.77),
-    chassis_codes={"E2", "E8"},
-    wmis={WMI.VOLKSWAGEN_EUROPE_SUV, WMI.VOLKSWAGEN_USA_SUV},
   )
   VOLKSWAGEN_JETTA_MK6 = VolkswagenPQPlatformConfig(
     [VWCarDocs("Volkswagen Jetta 2015-18")],
@@ -489,6 +490,15 @@ class CAR(Platforms):
     ],
     VolkswagenCarSpecs(mass=1300, wheelbase=2.64),
     chassis_codes={"5F"},
+    wmis={WMI.SEAT},
+  )
+  CUPRA_BORN_MK1 = VolkswagenMEBPlatformConfig(
+    [
+      VWCarDocs("CUPRA Born 2021"),
+    ],
+    # for CUPRA BORN 77kWh 170 kW, tireStiffnessFactor and centerToFrontRatio are approximations
+    VolkswagenCarSpecs(mass=1950, wheelbase=2.766, steerRatio=15.9, centerToFrontRatio=0.496, tireStiffnessFactor=1.0),
+    chassis_codes={"K1"},
     wmis={WMI.SEAT},
   )
   SKODA_FABIA_MK4 = VolkswagenMQBPlatformConfig(

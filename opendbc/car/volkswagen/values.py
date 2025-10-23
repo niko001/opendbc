@@ -673,7 +673,8 @@ def match_fw_to_car_fuzzy(live_fw_versions, vin, offline_fw_versions) -> set[str
       continue
 
     if vin_obj.wmi in platform.config.wmis and chassis_code in platform.config.chassis_codes:
-      if platform.config.model_years and model_year not in platform.config.model_years:
+      model_years = getattr(platform.config, "model_years", set())
+      if model_years and model_year not in model_years:
         continue
       candidates.add(platform)
 

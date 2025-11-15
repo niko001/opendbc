@@ -231,6 +231,7 @@ class VolkswagenFlags(IntFlag):
   STOCK_KLR_PRESENT = 8
   STOCK_PSD_PRESENT = 16
   STOCK_PSD_06_PRESENT = 512
+  STOCK_DIAGNOSE_01_PRESENT = 1024
   ALT_GEAR = 32
 
   # Static flags
@@ -395,10 +396,10 @@ class CAR(Platforms):
     wmis={WMI.VOLKSWAGEN_MEXICO_CAR, WMI.VOLKSWAGEN_EUROPE_CAR},
   )
   VOLKSWAGEN_GOLF_MK8 = VolkswagenMQBevoPlatformConfig(
-    [VWCarDocs("Volkswagen Golf 2021")],
+    [VWCarDocs("Volkswagen Golf 2020-25")],
     VolkswagenCarSpecs(mass=1397, wheelbase=2.62),
-    chassis_codes={"CD", "KL"}, #Golf 8 2022, Seat Leon MK4
-    wmis={WMI.VOLKSWAGEN_EUROPE_CAR, WMI.SEAT},
+    chassis_codes={"CD"},
+    wmis={WMI.VOLKSWAGEN_EUROPE_CAR},
   )
   VOLKSWAGEN_ID3_MK1 = VolkswagenMEBPlatformConfig(
     [VWCarDocs("Volkswagen ID.3 2020-23")],
@@ -570,6 +571,14 @@ class CAR(Platforms):
     ],
     VolkswagenCarSpecs(mass=1300, wheelbase=2.64),
     chassis_codes={"5F"},
+    wmis={WMI.SEAT},
+  )
+  SEAT_LEON_MK4 = VolkswagenMQBevoPlatformConfig(
+    [
+      VWCarDocs("SEAT Leon 2020-25"),
+    ],
+    VolkswagenCarSpecs(mass=1300, wheelbase=2.685),
+    chassis_codes={"KL"},
     wmis={WMI.SEAT},
   )
   CUPRA_BORN_MK1 = VolkswagenMEBPlatformConfig(

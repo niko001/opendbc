@@ -78,6 +78,9 @@ class CarInterface(CarInterfaceBase):
       if 0x464 in fingerprint[0]:  # PSD_06 on bus 0, used additionally for mph detection as long as no native stable speed limit unit flag is found
         ret.flags |= VolkswagenFlags.STOCK_PSD_06_PRESENT.value
 
+      if 0x6B2 in fingerprint[0]: # Diagnose_01 for local time from car
+        ret.flags |= VolkswagenFlags.STOCK_DIAGNOSE_01_PRESENT.value
+
       if 0x3DC in fingerprint[0]:  # Gatway_73
        ret.flags |= VolkswagenFlags.ALT_GEAR.value
 
@@ -156,4 +159,12 @@ class CarInterface(CarInterfaceBase):
       safety_configs.insert(0, get_safety_config(structs.CarParams.SafetyModel.noOutput))
     ret.safetyConfigs = safety_configs
 
+    return ret
+
+  @staticmethod
+  def _get_params_sp(stock_cp: structs.CarParams, ret: structs.CarParamsSP, candidate, fingerprint: dict[int, dict[int, int]],
+                     car_fw: list[structs.CarParams.CarFw], alpha_long: bool, is_release_sp: bool, docs: bool) -> structs.CarParamsSP:
+
+    ret.intelligentCruiseButtonManagementAvailable = stock_cp.pcmCruise
+                       
     return ret

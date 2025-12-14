@@ -23,7 +23,7 @@ from opendbc.sunnypilot.car.interfaces import CarInterfaceBaseSP
 GearShifter = structs.CarState.GearShifter
 ButtonType = structs.CarState.ButtonEvent.Type
 
-V_CRUISE_MAX = 145
+V_CRUISE_MAX = 220
 MAX_CTRL_SPEED = (V_CRUISE_MAX + 4) * CV.KPH_TO_MS
 ACCEL_MAX = 2.0
 ACCEL_MIN = -3.5
@@ -196,7 +196,7 @@ class CarInterfaceBase(ABC, CarInterfaceBaseSP):
   @staticmethod
   def pre_init(CP: structs.CarParams, CP_SP: structs.CarParamsSP, can_recv: CanRecvCallable, can_send: CanSendCallable):
     """Used to check conditions to disable longitudinal ECUs as needed and set/change car params"""
-  
+
   @staticmethod
   def init(CP: structs.CarParams, CP_SP: structs.CarParamsSP, can_recv: CanRecvCallable, can_send: CanSendCallable):
     """Used to disable longitudinal ECUs as needed"""

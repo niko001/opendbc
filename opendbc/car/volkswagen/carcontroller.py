@@ -1,8 +1,7 @@
 import numpy as np
 
 from opendbc.can import CANPacker
-from opendbc.car import Bus, DT_CTRL, structs, make_tester_present_msg, uds
-from opendbc.car.can_definitions import CanData
+from opendbc.car import Bus, DT_CTRL, structs, make_tester_present_msg
 from opendbc.car.lateral import apply_driver_steer_torque_limits, apply_std_curvature_limits
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarControllerBase
@@ -14,7 +13,6 @@ from opendbc.sunnypilot.car.volkswagen.icbm import IntelligentCruiseButtonManage
 
 VisualAlert = structs.CarControl.HUDControl.VisualAlert
 LongCtrlState = structs.CarControl.Actuators.LongControlState
-NetworkLocation = structs.CarParams.NetworkLocation
 
 
 class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterface):
@@ -92,9 +90,10 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
                                                        CS.out.steeringPressed, self.CCP.STEER_STEP, CC.latActive, self.CCP.CURVATURE_LIMITS)
 
           min_power = max(self.steering_power_last - self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MIN)
-          max_power = np.interp(CS.out.vEgo, [0., 1.5], [self.CCP.STEERING_POWER_MIN, max(self.steering_power_last + self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MAX)])
-          target_power = int(np.interp(CS.out.steeringTorque, [self.CCP.STEER_DRIVER_ALLOWANCE, self.CCP.STEER_DRIVER_MAX],
-                                                              [self.CCP.STEERING_POWER_MAX, self.CCP.STEERING_POWER_MIN]))
+          max_power = min(self.steering_power_last + self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MAX)
+          target_power_driver = int(np.interp(CS.out.steeringTorque, [self.CCP.STEER_DRIVER_ALLOWANCE, self.CCP.STEER_DRIVER_MAX],
+                                                                     [self.CCP.STEERING_POWER_MAX, self.CCP.STEERING_POWER_MIN]))
+          target_power = int(np.interp(CS.out.vEgo, [0., 0.5], [self.CCP.STEERING_POWER_MIN, target_power_driver]))
           steering_power = min(max(target_power, min_power), max_power)
           
         else:
@@ -256,7 +255,7 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
         hud_alert = self.CCP.LDW_MESSAGES["laneAssistTakeOver"]
 
       if self.CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO):
-        sound_alert = self.CCP.LDW_SOUNDS["Chime"] if hud_alert == self.CCP.LDW_MESSAGES["laneAssistTakeOver"] else self.CCP.LDW_SOUNDS["None"]
+        sound_alert = self.CCP.LDW_SOUNDS["Chime"] if hud_alert == self.CCP.LDW_MESSAGES["laneAssistTakeOver"] and not CC.disableCarSteerAlerts else self.CCP.LDW_SOUNDS["None"]
         can_sends.append(self.CCS.create_lka_hud_control(self.packer_pt, self.CAN.pt, CS.ldw_stock_values, CC.latActive,
                                                          CS.out.steeringPressed, hud_alert, hud_control, sound_alert))
       else:

@@ -5,7 +5,6 @@ from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.volkswagen.values import DBC, CanBus, NetworkLocation, TransmissionType, GearShifter, \
                                                       CarControllerParams, VolkswagenFlags, RADAR_DISABLE_STATE
 from opendbc.car.volkswagen.speed_limit_manager import SpeedLimitManager
-
 from opendbc.sunnypilot.car.volkswagen.mads import MadsCarState
 
 ButtonType = structs.CarState.ButtonEvent.Type
@@ -292,7 +291,8 @@ class CarState(CarStateBase, MadsCarState):
     ret.carFaultedNonCritical = cam_cp.vl["EA_01"]["EA_Funktionsstatus"] in (3, 4, 5, 6) # emergency assist always present also if not coded
 
     # Update gas, brakes, and gearshift.
-    ret.gasPressed   = pt_cp.vl["Motor_54"]["Accelerator_Pressure"] > 0 # MEB and MQBevo have other offsets in DBC (difference 0.4)
+    #ret.gasPressed   = pt_cp.vl["Motor_54"]["Accelerator_Pressure"] > 0 # MQBevo offset is not reliable (fluctuation or different statically in small range)
+    ret.gasPressed   = pt_cp.vl["Motor_51"]["Accel_Pedal_Pressure"] > 0 # detects accel pedal "a little bit" later than ["Motor_54"]["Accelerator_Pressure"]
     ret.brakePressed = bool(pt_cp.vl["Motor_14"]["MO_Fahrer_bremst"]) # includes regen braking by user
     ret.brake        = pt_cp.vl["ESC_51"]["Brake_Pressure"]
 
@@ -324,7 +324,7 @@ class CarState(CarStateBase, MadsCarState):
     # and capture it for forwarding to the blind spot radar controller
     self.ldw_stock_values = cam_cp.vl["LDW_02"]
 
-    ret.stockFcw = bool(ext_cp.vl["AWV_03"]["FCW_Active"]) if not (self.CP.flags & VolkswagenFlags.DISABLE_RADAR) else False# currently most plausible candidate
+    ret.stockFcw = bool(ext_cp.vl["AWV_03"]["FCW_Active"]) if not (self.CP.flags & VolkswagenFlags.DISABLE_RADAR) else False # currently most plausible candidate
     ret.stockAeb = False #bool(pt_cp.vl["VMM_02"]["AEB_Active"]) TODO find correct signal
 
     self.acc_type                = ext_cp.vl["ACC_18"]["ACC_Typ"] if not (self.CP.flags & VolkswagenFlags.DISABLE_RADAR) else 2 # 2: acc stop and go
@@ -549,13 +549,22 @@ class CarState(CarStateBase, MadsCarState):
 
   @staticmethod
   def get_can_parsers_meb(CP):
+    pt_messages = [
+      # frequency changes too much for the CANParser to figure out
+      ("Blinkmodi_02", 1),  # From J519 BCM (sent at 1Hz when no lights active, 50Hz when active)
+      ("SMLS_01", 1),       # From Stalk Controls
+    ]
+    if CP.networkLocation == NetworkLocation.fwdCamera:
+      if not (CP.flags & VolkswagenFlags.DISABLE_RADAR):
+        pt_messages.append(("AWV_03", 1)) # Front Collision Detection (1 Hz when inactive, 50 Hz when active)
+      
+    cam_messages = []
+    if CP.networkLocation == NetworkLocation.gateway:
+      if not (CP.flags & VolkswagenFlags.DISABLE_RADAR):
+        cam_messages.append(("AWV_03", 1)) # Front Collision Detection (1 Hz when inactive, 50 Hz when active)
+      
     return {
-       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], [
-        # frequency changes too much for the CANParser to figure out
-        #("AWV_03", 1),        # Front Collision Detection (1 Hz when inactive, 50 Hz when active)
-        ("Blinkmodi_02", 1),  # From J519 BCM (sent at 1Hz when no lights active, 50Hz when active)
-        ("SMLS_01", 1),       # From Stalk Controls
-      ], CanBus(CP).pt),
+      Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, CanBus(CP).pt),
       Bus.main: CANParser(DBC[CP.carFingerprint][Bus.pt], [], CanBus(CP).main),
-      Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], [], CanBus(CP).cam),
+      Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_messages, CanBus(CP).cam),
     }

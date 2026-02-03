@@ -15,7 +15,6 @@ MIN_ACCEL = -3.5
 # MEB message IDs
 MSG_ESC_51        = 0xFC
 MSG_QFK_01        = 0x13D
-MSG_Motor_54      = 0x14C
 MSG_Motor_51      = 0x10B
 MSG_ACC_18        = 0x14D
 MSG_MEB_ACC_01    = 0x300
@@ -58,8 +57,8 @@ class TestVolkswagenMebSafetyBase(common.CarSafetyTest, common.CurvatureSteering
 
   # Driver throttle input
   def _user_gas_msg(self, gas):
-    values = {"Accelerator_Pressure": gas}
-    return self.packer.make_can_msg_safety("Motor_54", 0, values)
+    values = {"Accel_Pedal_Pressure": gas}
+    return self.packer.make_can_msg_safety("Motor_51", 0, values)
 
   def _vehicle_moving_msg(self, speed_mps: float):
     return self._speed_msg(speed_mps)
@@ -155,7 +154,7 @@ class TestVolkswagenMqbEvoStockSafety(TestVolkswagenMebStockSafety):
   def setUp(self):
     self.packer = CANPackerSafety("vw_mqbevo")
     self.safety = libsafety_py.libsafety
-    self.safety.set_safety_hooks(CarParams.SafetyModel.volkswagenMqbEvo, VolkswagenSafetyFlags.NO_GAS_OFFSET)
+    self.safety.set_safety_hooks(CarParams.SafetyModel.volkswagenMqbEvo, 0)
     self.safety.init_tests()
     
 
@@ -240,7 +239,7 @@ class TestVolkswagenMqbEvoLongSafety(TestVolkswagenMebLongSafety):
   def setUp(self):
     self.packer = CANPackerSafety("vw_mqbevo")
     self.safety = libsafety_py.libsafety
-    safety_param = VolkswagenSafetyFlags.LONG_CONTROL + VolkswagenSafetyFlags.NO_GAS_OFFSET
+    safety_param = VolkswagenSafetyFlags.LONG_CONTROL
     self.safety.set_safety_hooks(CarParams.SafetyModel.volkswagenMqbEvo, safety_param)
     self.safety.init_tests()
 
